@@ -9,6 +9,58 @@ import { GuidedLesson } from "./guided.ts";
 import { LessonKey } from "./key.ts";
 import { lessonProps } from "./settings.ts";
 
+test("cc1 guided lessons unlock letters by finger and direction", () => {
+  const keyboard = loadKeyboard(Layout.EN_CC1);
+  const model = new FakePhoneticModel();
+  const included = (keyboardOrder: boolean) => {
+    const lesson = new GuidedLesson(
+      new Settings().set(lessonProps.guided.keyboardOrder, keyboardOrder),
+      keyboard,
+      model,
+      [],
+    );
+    return lesson
+      .update(makeKeyStatsMap(lesson.letters, []))
+      .findIncludedKeys()
+      .map(({ letter }) => String.fromCodePoint(letter.codePoint))
+      .join("");
+  };
+
+  // FakePhoneticModel is a–j. The CC1 order of that subset starts
+  // e, a, i, j, c, d rather than the frequency order a–f.
+  equal(included(false), "eaijcd");
+  equal(included(true), "eaijcd");
+});
+
+test("cc1 guided lessons add the next letter in finger and direction order", () => {
+  const settings = new Settings();
+  const keyboard = loadKeyboard(Layout.EN_CC1);
+  const model = new FakePhoneticModel();
+  const lesson = new GuidedLesson(settings, keyboard, model, []);
+  const included = (confident: string) =>
+    lesson
+      .update(
+        fakeKeyStatsMap(
+          settings,
+          lesson.letters.map((l) =>
+            confident.includes(String.fromCodePoint(l.codePoint))
+              ? [l, 1, 1]
+              : [l, null, null],
+          ),
+        ),
+      )
+      .findIncludedKeys()
+      .map(({ letter }) => String.fromCodePoint(letter.codePoint))
+      .join("");
+
+  // After e a i j c d, the CC1 order of the remaining a–j letters is
+  // f (thumb 1 inward), h (thumb 1 outward), b (thumb 2 inward), g.
+  equal(included("eaijcd"), "eaijcdf");
+  equal(included("eaijcdf"), "eaijcdfh");
+  equal(included("eaijcdfh"), "eaijcdfhb");
+  equal(included("eaijcdfhb"), "eaijcdfhbg");
+});
+
 test("provide key set", () => {
   const settings = new Settings();
   const keyboard = loadKeyboard(Layout.EN_US);
